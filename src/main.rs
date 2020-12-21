@@ -115,7 +115,7 @@ fn create_warrior(conn: DbConn, warrior: Form<WarriorFormInput>) -> Result<Redir
         hill: h.id,
         status: 0,
     };
-    db::create_climb(&conn.0, &climb);
+    db::create_climb(&conn.0, &climb)?;
     Ok(Redirect::to(uri!(get_warrior: w.id.to_string())))
 }
 #[get("/warriors")]
@@ -182,12 +182,13 @@ fn get_hill(conn: DbConn, id: &RawStr) -> Result<Template, Status> {
     let id = to_id(id)?;
     let h = db::get_hill_by_id(&conn.0, id)?;
     let mut ws = db::get_warriors_on_hill(&conn.0, id)?;
-    let hw = HillWarriors {
+    let mut hw = HillWarriors {
         hill: h,
         warriors: ws
             .drain(..)
             .map(|hw| -> Result<HillWarrior, Error> {
-                let w = db::get_warrior_by_id(&conn.0, hw.id)?;
+                println!("HW {:?}", hw);
+                let w = db::get_warrior_by_id(&conn.0, hw.warrior)?;
                 let a = db::get_author_by_id(&conn.0, w.author)?;
                 Ok(HillWarrior {
                     id: w.id,
@@ -203,6 +204,8 @@ fn get_hill(conn: DbConn, id: &RawStr) -> Result<Template, Status> {
             })
             .collect::<Result<Vec<HillWarrior>, Error>>()?,
     };
+    hw.warriors
+        .sort_by(|a, b| a.rank.partial_cmp(&b.rank).unwrap());
     Ok(Template::render("hill", &hw))
 }
 #[get("/hill")]
@@ -224,8 +227,7 @@ fn create_hill(conn: DbConn, hill: Form<HillFormInput>) -> Result<Redirect, Stat
         rounds: hill.rounds,
         slots: hill.slots,
     };
-    db::create_hill(&conn.0, &h);
-    let hill = db::get_hill(&conn.0, &h.name)?;
+    let hill = db::create_hill(&conn.0, &h)?;
     Ok(Redirect::to(uri!(get_hill: hill.id.to_string())))
 }
 #[get("/hills")]
@@ -242,6 +244,7 @@ struct ClimbFormInput {
 }
 #[derive(Debug, serde::Serialize)]
 struct ClimbList {
+    only_pending: bool,
     climbs: Vec<Climb>,
 }
 #[derive(Debug, serde::Serialize)]
@@ -251,35 +254,15 @@ struct Climb {
     pub warrior: String,
     pub status: String,
 }
-#[derive(Debug, serde::Serialize)]
-struct CreateClimb {
-    pub hills: Vec<models::Hill>,
-    pub warriors: Vec<models::Warrior>,
-}
-#[get("/climb")]
-fn create_climb_form(conn: DbConn) -> Result<Template, Status> {
-    let context = CreateClimb {
-        hills: db::get_hills(&conn.0)?,
-        warriors: db::get_warriors(&conn.0)?,
+#[get("/climbs?<only_pending>")]
+fn list_climbs(conn: DbConn, only_pending: bool) -> Result<Template, Status> {
+    let mut climbs = match only_pending {
+        true => db::get_pending_climbs(&conn.0)?,
+        false => db::get_climbs(&conn.0)?,
     };
-    Ok(Template::render("climb-create", &context))
-}
-#[post("/climb", data = "<climb>")]
-fn create_climb(conn: DbConn, climb: Form<ClimbFormInput>) -> Result<Redirect, Status> {
-    let h = db::get_hill(&conn.0, climb.hill.as_str())?;
-    let w = db::get_warrior(&conn.0, climb.warrior.as_str())?;
-    let c = models::NewClimb {
-        hill: h.id,
-        warrior: w.id,
-        status: 0,
-    };
-    db::create_climb(&conn.0, &c);
-    Ok(Redirect::to(uri!(list_climbs)))
-}
-#[get("/climbs")]
-fn list_climbs(conn: DbConn) -> Result<Template, Status> {
     let context = ClimbList {
-        climbs: db::get_climbs(&conn.0)?
+        only_pending: only_pending,
+        climbs: climbs
             .drain(..)
             .map(|c| -> Result<Climb, Error> {
                 let h = db::get_hill_by_id(&conn.0, c.hill)?;
@@ -299,6 +282,58 @@ fn list_climbs(conn: DbConn) -> Result<Template, Status> {
             .collect::<Result<Vec<Climb>, Error>>()?,
     };
     Ok(Template::render("climb-index", &context))
+}
+#[derive(Debug, serde::Serialize)]
+struct AuthorList {
+    authors: Vec<models::Author>,
+}
+#[derive(Debug, serde::Serialize)]
+struct Author {
+    author: models::Author,
+    warriors: Vec<AuthorWarrior>,
+}
+#[derive(Debug, serde::Serialize)]
+struct AuthorWarrior {
+    id: i32,
+    name: String,
+    hill: String,
+    hill_id: i32,
+    rank: i32,
+}
+
+#[get("/author/<id>")]
+fn get_author(conn: DbConn, id: &RawStr) -> Result<Template, Status> {
+    let id = to_id(id)?;
+    let a = db::get_author_by_id(&conn.0, id)?;
+    let context = Author {
+        author: a,
+        warriors: db::get_warriors_from_author(&conn.0, id)?
+            .drain(..)
+            .map(|w| -> Result<AuthorWarrior, Error> {
+                let h = db::get_hill_by_id(&conn.0, w.hill)?;
+                let rank = match db::get_warrior_from_hill(&conn.0, w.hill, w.id) {
+                    Ok(hw) => hw.rank,
+                    Err(e) if e.is_not_found() => -1,
+                    Err(e) => return Err(e),
+                };
+                Ok(AuthorWarrior {
+                    id: w.id,
+                    name: w.name,
+                    hill: h.name,
+                    hill_id: h.id,
+                    rank: rank,
+                })
+            })
+            .collect::<Result<Vec<AuthorWarrior>, Error>>()?,
+    };
+    Ok(Template::render("author", &context))
+}
+#[get("/authors")]
+fn list_authors(conn: DbConn) -> Result<Template, Status> {
+    let context = AuthorList {
+        authors: db::get_authors(&conn.0)?,
+    };
+    Ok(Template::render("author-index", &context))
 }
 fn main() {
     use std::thread;
@@ -323,9 +358,9 @@ fn main() {
                 create_hill_form,
                 create_hill,
                 list_hills,
-                create_climb_form,
-                create_climb,
                 list_climbs,
+                get_author,
+                list_authors,
             ],
         )
         .launch();

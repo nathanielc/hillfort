@@ -101,6 +101,23 @@ pub fn get_warriors_on_hill<'a>(
         Err(e) => return Err(e),
     }
 }
+pub fn get_warrior_from_hill(
+    conn: &SqliteConnection,
+    hid: i32,
+    wid: i32,
+) -> Result<HillWarrior, Error> {
+    use crate::schema::hill_warriors::dsl::*;
+    let mut list = hill_warriors
+        .filter(warrior.eq(wid))
+        .filter(hill.eq(hid))
+        .load::<HillWarrior>(conn)?;
+    match list.pop() {
+        Some(w) => Ok(w),
+        None => Err(Error {
+            code: Code::NotFound,
+        }),
+    }
+}
 pub fn delete_warriors_on_hill<'a>(conn: &SqliteConnection, hid: i32) -> Result<(), Error> {
     use crate::schema::hill_warriors::dsl::*;
     diesel::delete(hill_warriors.filter(hill.eq(hid))).execute(conn)?;
@@ -188,4 +205,8 @@ pub fn create_author(conn: &SqliteConnection, a: &NewAuthor) -> Result<Author, E
         }
         Err(e) => return Err(e),
     }
+}
+pub fn get_warriors_from_author(conn: &SqliteConnection, aid: i32) -> Result<Vec<Warrior>, Error> {
+    use crate::schema::warriors::dsl::*;
+    Ok(warriors.filter(author.eq(aid)).load::<Warrior>(conn)?)
 }

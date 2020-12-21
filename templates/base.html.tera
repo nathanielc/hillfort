@@ -7,13 +7,22 @@
     ul#menu li {
       display:inline;
     }
+    table, th ,td {
+        border: 1px solid black;
+    }
+    th, td {
+        padding: 4px;
+    }
+    table {
+        margin: 15px;
+    }
 </style>
   </head>
   <body>
       <ul id="menu">
           <li><a href="/hills">Hills</a></li>
           <li><a href="/warriors">Warriors</a></li>
-          <li><a href="/climbs">Climbs</a></li>
+          <li><a href="/climbs?only_pending=true">Climbs</a></li>
           <li><a href="/hill">New Hill</a></li>
           <li><a href="/warrior">Submit Warrior</a></li>
       </ul>

@@ -4,6 +4,26 @@
 <form action="/warrior" method="post">
     <label for="redcode">Insert Redcode</label><br>
     <textarea id="redcode" name="redcode" rows="20" cols="80" autofocus></textarea><br>
-    <input type="submit" value="Create Warrior">
+    <b>Warning:</b> Warriors with the same name will replace the previous warrior.
+    <br>
+    <input type="submit" value="Submit Warrior">
 </form>
+<p>Redcode must have the following specific meta comments:</p>
+<ul>
+    <li>";redcode-KEY" - where KEY is the key of the hill you wish to climb.</li>
+    <li>";name WARRIOR_NAME" - where WARRIOR_NAME is replaced with a name for your warrior.</li>
+    <li>";author AUTHOR_NAME" - where AUTHOR_NAME is replaced with your name.</li>
+    <li>";assert X" - where X is replace by any assertions, use "1" if you don't wish to assert anything.</li>
+</ul>
+<p>Both the warrior and author names must contain only ascii alphanumeric characters.</p>
+<br>
+Example:
+<pre>
+;redcode-94b
+;name imp
+;author Dewdney
+;assert 1
+mov 0, 1
+</pre>
+<p>Submitting a warrior will automatically start a climb challenge on the hill specified by the redcode key.
 {% endblock content %}

@@ -125,13 +125,14 @@ fn climb(conn: &SqliteConnection, c: Climb) -> Result<(), Error> {
         hw.tie = hw.tie / total_rounds * 100.0;
         hw.score = hw.win * 3.0 + hw.tie;
     }
-    db::delete_warriors_on_hill(conn, hill.id);
+    db::delete_warriors_on_hill(conn, hill.id)?;
     hws.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap());
     for (rank, hw) in (&mut hws).iter_mut().enumerate() {
         hw.rank = rank as i32 + 1;
         if hw.rank > hill.slots {
             break;
         }
+        println!("HW, {:?}", hw);
         db::create_hill_warrior(conn, &hw)?;
     }
     db::update_climb_status(&conn, c.id, 2)?;

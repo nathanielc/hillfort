@@ -60,10 +60,10 @@
             <td>{{ w.rank }}</td>
             <td><a href="/warrior/{{ w.id }}">{{ w.name }}</a></td>
             <td><a href="/author/{{ w.author_id }}">{{ w.author }}</a></td>
-            <td>{{ w.win }}</td>
-            <td>{{ w.loss }}</td>
-            <td>{{ w.tie }}</td>
-            <td>{{ w.score }}</td>
+            <td>{{ w.win|round(precision=1) }}</td>
+            <td>{{ w.loss|round(precision=1) }}</td>
+            <td>{{ w.tie|round(precision=1)  }}</td>
+            <td>{{ w.score|round(precision=1) }}</td>
         </tr>
         {% endfor %}
 </table>

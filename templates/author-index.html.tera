@@ -1,0 +1,17 @@
+{% extends "base" %}
+
+{% block content %}
+    <h1>Author List</h1>
+    <table>
+        <tr>
+            <th>ID</th>
+            <th>Name</th>
+        </tr>
+        {% for a in authors %}
+        <tr>
+            <td>{{ a.id }}</td>
+            <td><a href="/author/{{ a.id }}">{{ a.name }}</a></td>
+        </tr>
+        {% endfor %}
+    </table>
+{% endblock content %}

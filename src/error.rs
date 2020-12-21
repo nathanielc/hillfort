@@ -28,21 +28,21 @@ impl Error {
 }
 
 impl From<Utf8Error> for Error {
-    fn from(e: Utf8Error) -> Self {
+    fn from(_: Utf8Error) -> Self {
         Error {
             code: Code::Invalid,
         }
     }
 }
 impl From<FromUtf8Error> for Error {
-    fn from(e: FromUtf8Error) -> Self {
+    fn from(_: FromUtf8Error) -> Self {
         Error {
             code: Code::Internal,
         }
     }
 }
 impl From<ParseIntError> for Error {
-    fn from(e: ParseIntError) -> Self {
+    fn from(_: ParseIntError) -> Self {
         Error {
             code: Code::Invalid,
         }
@@ -61,7 +61,7 @@ impl From<DError> for Error {
     }
 }
 impl From<io::Error> for Error {
-    fn from(e: io::Error) -> Self {
+    fn from(_: io::Error) -> Self {
         Error {
             code: Code::Internal,
         }
