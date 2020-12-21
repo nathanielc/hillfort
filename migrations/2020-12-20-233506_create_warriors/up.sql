@@ -1,0 +1,6 @@
+CREATE TABLE warriors (
+  id INTEGER PRIMARY KEY NOT NULL,
+  name VARCHAR UNIQUE NOT NULL,
+  author TEXT NOT NULL,
+  redcode TEXT NOT NULL
+);

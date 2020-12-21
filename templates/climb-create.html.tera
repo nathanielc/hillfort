@@ -1,0 +1,19 @@
+{% extends "base" %}
+
+{% block content %}
+<form action="/climb" method="post">
+    <label for="hill">Hill</label>
+    <select name="hill" id="hill">
+        {% for h in hills %}
+        <option value="{{h.name}}">{{h.name}}</option>
+        {% endfor %}
+    </select><br>
+    <label for="warrior">Warrior</label>
+    <select name="warrior" id="warrior">
+        {% for w in warriors %}
+        <option value="{{w.name}}">{{w.name}}</option>
+        {% endfor %}
+    </select><br>
+    <input type="submit" value="Climb Hill">
+</form>
+{% endblock content %}

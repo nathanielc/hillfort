@@ -1,0 +1,40 @@
+{% extends "base" %}
+
+{% block content %}
+<form action="/hill" method="post">
+    <label for="name">Name</label><br>
+    <input type="text" id="name" name="name" autofocus><br>
+
+    <label for="key">Key</label><br>
+    <input type="text" id="key" name="key"><br>
+
+    <label>Instruction Set</label><br>
+    <label for="88">88</label>
+    <input type="radio" id="88" name="instruction_set" value="88">
+    <label for="94">94</label>
+    <input type="radio" id="94" name="instruction_set" value="94"><br>
+
+    <label for="core_size">Core Size</label><br>
+    <input type="number" id="core_size" name="core_size"><br>
+
+    <label for="max_cycles">Max Cycles</label><br>
+    <input type="number" id="max_cycles" name="max_cycles"><br>
+
+    <label for="max_processes">Max Processes</label><br>
+    <input type="number" id="max_processes" name="max_processes"><br>
+
+    <label for="max_warrior_length">Max Warrior Length</label><br>
+    <input type="number" id="max_warrior_length" name="max_warrior_length"><br>
+
+    <label for="min_distance">Min Distance</label><br>
+    <input type="number" id="min_distance" name="min_distance"><br>
+
+    <label for="rounds">Rounds</label><br>
+    <input type="number" id="rounds" name="rounds"><br>
+
+    <label for="slots">Slots</label><br>
+    <input type="number" id="slots" name="slots"><br>
+
+    <input type="submit" value="Create Hill">
+</form>
+{% endblock content %}

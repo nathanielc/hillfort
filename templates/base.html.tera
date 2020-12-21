@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Hill Fort</title>
+    <style>
+    ul#menu li {
+      display:inline;
+    }
+</style>
+  </head>
+  <body>
+      <ul id="menu">
+          <li><a href="/hills">Hills</a></li>
+          <li><a href="/warriors">Warriors</a></li>
+          <li>Authors</li>
+          <li><a href="/climbs">Climbs</a></li>
+          <li><a href="/hill">New Hill</a></li>
+          <li><a href="/warrior">New Warrior</a></li>
+          <li><a href="/climb">New Climb</a></li>
+      </ul>
+    {% block content %}{% endblock content %}
+  </body>
+</html>

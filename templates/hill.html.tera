@@ -1,0 +1,74 @@
+{% extends "base" %}
+
+{% block content %}
+<h1>Hill: {{ hill.name }}</h1>
+<table>
+    <tr>
+        <th>Setting</th>
+        <th>Value</th>
+    </tr>
+    <tr>
+        <td>Name</td>
+        <td>{{hill.name}}</td>
+    </tr>
+    <tr>
+        <td>Key</td>
+        <td>{{hill.key}}</td>
+    </tr>
+    <tr>
+        <td>Instruction Set</td>
+        <td>{{hill.instruction_set}}</td>
+    </tr>
+    <tr>
+        <td>Core Size</td>
+        <td>{{hill.core_size}}</td>
+    </tr>
+    <tr>
+        <td>Max Cycles</td>
+        <td>{{hill.max_cycles}}</td>
+    </tr>
+    <tr>
+        <td>Max Processes</td>
+        <td>{{hill.max_processes}}</td>
+    </tr>
+    <tr>
+        <td>Max Warrior Length</td>
+        <td>{{hill.max_warrior_length}}</td>
+    </tr>
+    <tr>
+        <td>Min Distance</td>
+        <td>{{hill.min_distance}}</td>
+    </tr>
+    <tr>
+        <td>Rounds</td>
+        <td>{{hill.rounds}}</td>
+    </tr>
+    <tr>
+        <td>Slots</td>
+        <td>{{hill.slots}}</td>
+    </tr>
+</table>
+
+<table>
+    <tr>
+        <th>Rank</th>
+        <th>Warrior</th>
+        <th>Author</th>
+        <th>W%</th>
+        <th>L%</th>
+        <th>T%</th>
+        <th>Score</th>
+    </tr>
+        {% for w in warriors %}
+        <tr>
+            <td>{{ w.rand }}</td>
+            <td><a href="warrior/{{ w.name }}">{{ w.name }}</a></td>
+            <td><a href="author/{{ w.author }}">{{ w.author }}</a></td>
+            <td>{{ w.win }}</td>
+            <td>{{ w.loss }}</td>
+            <td>{{ w.tie }}</td>
+            <td>{{ w.score }}</td>
+        </tr>
+        {% endfor %}
+</table>
+{% endblock content %}

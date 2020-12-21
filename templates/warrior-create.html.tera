@@ -1,0 +1,9 @@
+{% extends "base" %}
+
+{% block content %}
+<form action="/warrior" method="post">
+    <label for="redcode">Insert Redcode</label><br>
+    <textarea id="redcode" name="redcode" rows="20" cols="80" autofocus></textarea><br>
+    <input type="submit" value="Create Warrior">
+</form>
+{% endblock content %}

@@ -1,0 +1,21 @@
+{% extends "base" %}
+
+{% block content %}
+    <h1>Climb List</h1>
+    <table>
+        <tr>
+            <th>ID</th>
+            <th>Hill</th>
+            <th>Warrior</th>
+            <th>Status</th>
+        </tr>
+        {% for c in climbs %}
+        <tr>
+            <td>{{ c.id }}</td>
+            <td><a href="hill/{{ c.hill }}">{{ c.hill }}</a></td>
+            <td><a href="warrior/{{ c.warrior }}">{{ c.warrior }}</a></td>
+            <td>{{ c.status }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+{% endblock content %}

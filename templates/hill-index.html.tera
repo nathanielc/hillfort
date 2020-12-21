@@ -1,0 +1,19 @@
+{% extends "base" %}
+
+{% block content %}
+    <h1>Hill List</h1>
+    <table>
+        <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Key</th>
+        </tr>
+        {% for h in hills %}
+        <tr>
+            <td>{{ h.id }}</td>
+            <td><a href="hill/{{ h.name }}">{{ h.name }}</a></td>
+            <td>{{ h.key }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+{% endblock content %}
