@@ -2,7 +2,8 @@
 
 {% block content %}
 <h1>Warrior: {{ name }}</h1>
-Author: {{author}}<br>
+Hill: <a href="/hill/{{hill_id}}">{{hill}}</a><br>
+Author: <a href="/author/{{author_id}}">{{author}}</a><br>
 Redcode<br>
 <pre>
 {{ redcode }}

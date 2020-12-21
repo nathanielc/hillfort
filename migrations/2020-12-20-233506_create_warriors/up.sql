@@ -1,6 +1,7 @@
 CREATE TABLE warriors (
   id INTEGER PRIMARY KEY NOT NULL,
   name VARCHAR UNIQUE NOT NULL,
-  author TEXT NOT NULL,
+  hill INTEGER NOT NULL,
+  author INTEGER NOT NULL,
   redcode TEXT NOT NULL
 );

@@ -7,12 +7,14 @@
             <th>ID</th>
             <th>Name</th>
             <th>Author</th>
+            <th>Hill</th>
         </tr>
         {% for w in warriors %}
         <tr>
             <td>{{ w.id }}</td>
-            <td><a href="warrior/{{ w.name }}">{{ w.name }}</a></td>
-            <td>{{ w.author }}</td>
+            <td><a href="/warrior/{{ w.id }}">{{ w.name }}</a></td>
+            <td><a href="/author/{{ w.author_id }}">{{ w.author }}</a></td>
+            <td><a href="/hill/{{ w.hill_id }}">{{ w.hill }}</a></td>
         </tr>
         {% endfor %}
     </table>

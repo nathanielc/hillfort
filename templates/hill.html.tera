@@ -8,10 +8,6 @@
         <th>Value</th>
     </tr>
     <tr>
-        <td>Name</td>
-        <td>{{hill.name}}</td>
-    </tr>
-    <tr>
         <td>Key</td>
         <td>{{hill.key}}</td>
     </tr>
@@ -61,9 +57,9 @@
     </tr>
         {% for w in warriors %}
         <tr>
-            <td>{{ w.rand }}</td>
-            <td><a href="warrior/{{ w.name }}">{{ w.name }}</a></td>
-            <td><a href="author/{{ w.author }}">{{ w.author }}</a></td>
+            <td>{{ w.rank }}</td>
+            <td><a href="/warrior/{{ w.id }}">{{ w.name }}</a></td>
+            <td><a href="/author/{{ w.author_id }}">{{ w.author }}</a></td>
             <td>{{ w.win }}</td>
             <td>{{ w.loss }}</td>
             <td>{{ w.tie }}</td>

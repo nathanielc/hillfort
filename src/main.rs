@@ -1,11 +1,16 @@
 #![feature(proc_macro_hygiene, decl_macro)]
 
 mod db;
+mod error;
+mod hill;
 mod models;
 mod schema;
 
+use crate::error::Error;
+
 #[macro_use]
 extern crate diesel;
+extern crate dotenv;
 
 #[macro_use]
 extern crate lazy_static;
@@ -15,7 +20,7 @@ use regex::Regex;
 
 #[macro_use]
 extern crate rocket;
-use rocket::http::RawStr;
+use rocket::http::{RawStr, Status};
 use rocket::request::Form;
 use rocket::response::Redirect;
 
@@ -34,13 +39,51 @@ struct WarriorFormInput {
 }
 #[derive(Debug, serde::Serialize)]
 struct WarriorList {
-    warriors: Vec<models::Warrior>,
+    warriors: Vec<Warrior>,
+}
+#[derive(Debug, serde::Serialize)]
+struct Warrior {
+    pub id: i32,
+    pub name: String,
+    pub hill: String,
+    pub hill_id: i32,
+    pub author: String,
+    pub author_id: i32,
+    pub redcode: String,
 }
 
-#[get("/warrior/<name>")]
-fn get_warrior(conn: DbConn, name: &RawStr) -> Template {
-    let w = db::get_warrior(&conn.0, name);
-    Template::render("warrior", &w)
+fn to_id(s: &RawStr) -> Result<i32, Error> {
+    Ok(s.url_decode()?.parse::<i32>()?)
+}
+
+#[catch(404)]
+fn not_found() -> Template {
+    let context: HashMap<&str, &str> = HashMap::new();
+    Template::render("notfound", &context)
+}
+#[get("/")]
+fn home() -> Template {
+    let context: HashMap<&str, &str> = HashMap::new();
+    Template::render("home", &context)
+}
+#[get("/warrior/<id>")]
+fn get_warrior(conn: DbConn, id: &RawStr) -> Result<Template, Status> {
+    let id = to_id(id)?;
+    let w = db::get_warrior_by_id(&conn.0, id)?;
+    let h = db::get_hill_by_id(&conn.0, w.hill)?;
+    let a = db::get_author_by_id(&conn.0, w.author)?;
+    Ok(Template::render(
+        "warrior",
+        &Warrior {
+            id,
+            name: w.name,
+            hill: h.name,
+            hill_id: h.id,
+            author: a.name,
+            author_id: a.id,
+            redcode: w.redcode,
+        },
+    ))
 }
 #[get("/warrior")]
 fn create_warrior_form() -> Template {
@@ -48,17 +91,54 @@ fn create_warrior_form() -> Template {
     Template::render("warrior-create", &context)
 }
 #[post("/warrior", data = "<warrior>")]
-fn create_warrior(conn: DbConn, warrior: Form<WarriorFormInput>) -> Redirect {
-    let w = parse_warrior_code(warrior.redcode.as_str());
-    db::create_warrior(&conn.0, &w);
-    Redirect::to(uri!(get_warrior: w.name))
+fn create_warrior(conn: DbConn, warrior: Form<WarriorFormInput>) -> Result<Redirect, Status> {
+    let data = parse_warrior_code(warrior.redcode.as_str());
+    println!("Data: {:?}", data);
+    let h = db::get_hill_by_key(&conn.0, data.hill_key.as_str())?;
+    let a = db::create_author(
+        &conn.0,
+        &models::NewAuthor {
+            name: data.author.as_str(),
+        },
+    )?;
+    let w = db::create_warrior(
+        &conn.0,
+        &models::NewWarrior {
+            name: data.warrior.as_str(),
+            hill: h.id,
+            author: a.id,
+            redcode: warrior.redcode.as_str(),
+        },
+    )?;
+    let climb = models::NewClimb {
+        warrior: w.id,
+        hill: h.id,
+        status: 0,
+    };
+    db::create_climb(&conn.0, &climb);
+    Ok(Redirect::to(uri!(get_warrior: w.id.to_string())))
 }
 #[get("/warriors")]
-fn list_warriors(conn: DbConn) -> Template {
+fn list_warriors(conn: DbConn) -> Result<Template, Status> {
     let context = WarriorList {
-        warriors: db::get_warriors(&conn.0),
+        warriors: db::get_warriors(&conn.0)?
+            .drain(..)
+            .map(|w| -> Result<Warrior, Error> {
+                let h = db::get_hill_by_id(&conn.0, w.hill)?;
+                let a = db::get_author_by_id(&conn.0, w.author)?;
+                Ok(Warrior {
+                    id: w.id,
+                    name: w.name,
+                    hill: h.name,
+                    hill_id: h.id,
+                    author: a.name,
+                    author_id: a.id,
+                    redcode: w.redcode,
+                })
+            })
+            .collect::<Result<Vec<Warrior>, Error>>()?,
     };
-    Template::render("warrior-index", &context)
+    Ok(Template::render("warrior-index", &context))
 }
 
 #[derive(Debug, FromForm, serde::Serialize)]
@@ -82,12 +162,14 @@ struct HillList {
 #[derive(Debug, serde::Serialize)]
 struct HillWarriors {
     pub hill: models::Hill,
-    pub warriors: Vec<Option<HillWarrior>>,
+    pub warriors: Vec<HillWarrior>,
 }
 #[derive(Debug, serde::Serialize)]
 struct HillWarrior {
-    pub warrior: String,
+    pub id: i32,
+    pub name: String,
     pub author: String,
+    pub author_id: i32,
     pub rank: i32,
     pub win: f32,
     pub loss: f32,
@@ -95,36 +177,41 @@ struct HillWarrior {
     pub score: f32,
 }
 
-#[get("/hill/<name>")]
-fn get_hill(conn: DbConn, name: &RawStr) -> Template {
-    let (h, ws) = db::get_warriors_on_hill(&conn.0, name).expect("No hill found");
+#[get("/hill/<id>")]
+fn get_hill(conn: DbConn, id: &RawStr) -> Result<Template, Status> {
+    let id = to_id(id)?;
+    let h = db::get_hill_by_id(&conn.0, id)?;
+    let mut ws = db::get_warriors_on_hill(&conn.0, id)?;
     let hw = HillWarriors {
         hill: h,
         warriors: ws
-            .iter()
-            .map(|hw| match db::get_warrior_by_id(&conn.0, hw.id) {
-                None => None,
-                Some(w) => Some(HillWarrior {
-                    warrior: w.name,
-                    author: w.author,
+            .drain(..)
+            .map(|hw| -> Result<HillWarrior, Error> {
+                let w = db::get_warrior_by_id(&conn.0, hw.id)?;
+                let a = db::get_author_by_id(&conn.0, w.author)?;
+                Ok(HillWarrior {
+                    id: w.id,
+                    name: w.name,
+                    author: a.name,
+                    author_id: a.id,
                     rank: hw.rank,
                     win: hw.win,
                     loss: hw.loss,
                     tie: hw.tie,
                     score: hw.score,
-                }),
+                })
             })
-            .collect(),
+            .collect::<Result<Vec<HillWarrior>, Error>>()?,
     };
-    Template::render("hill", &hw)
+    Ok(Template::render("hill", &hw))
 }
 #[get("/hill")]
-fn create_hill_form() -> Template {
+fn create_hill_form() -> Result<Template, Status> {
     let context: HashMap<&str, &str> = HashMap::new();
-    Template::render("hill-create", &context)
+    Ok(Template::render("hill-create", &context))
 }
 #[post("/hill", data = "<hill>")]
-fn create_hill(conn: DbConn, hill: Form<HillFormInput>) -> Redirect {
+fn create_hill(conn: DbConn, hill: Form<HillFormInput>) -> Result<Redirect, Status> {
     let h = models::NewHill {
         name: hill.name.clone(),
         key: hill.key.clone(),
@@ -138,14 +225,15 @@ fn create_hill(conn: DbConn, hill: Form<HillFormInput>) -> Redirect {
         slots: hill.slots,
     };
     db::create_hill(&conn.0, &h);
-    Redirect::to(uri!(get_hill: h.name))
+    let hill = db::get_hill(&conn.0, &h.name)?;
+    Ok(Redirect::to(uri!(get_hill: hill.id.to_string())))
 }
 #[get("/hills")]
-fn list_hills(conn: DbConn) -> Template {
+fn list_hills(conn: DbConn) -> Result<Template, Status> {
     let context = HillList {
-        hills: db::get_hills(&conn.0),
+        hills: db::get_hills(&conn.0)?,
     };
-    Template::render("hill-index", &context)
+    Ok(Template::render("hill-index", &context))
 }
 #[derive(Debug, FromForm, serde::Serialize)]
 struct ClimbFormInput {
@@ -169,34 +257,34 @@ struct CreateClimb {
     pub warriors: Vec<models::Warrior>,
 }
 #[get("/climb")]
-fn create_climb_form(conn: DbConn) -> Template {
+fn create_climb_form(conn: DbConn) -> Result<Template, Status> {
     let context = CreateClimb {
-        hills: db::get_hills(&conn.0),
-        warriors: db::get_warriors(&conn.0),
+        hills: db::get_hills(&conn.0)?,
+        warriors: db::get_warriors(&conn.0)?,
     };
-    Template::render("climb-create", &context)
+    Ok(Template::render("climb-create", &context))
 }
 #[post("/climb", data = "<climb>")]
-fn create_climb(conn: DbConn, climb: Form<ClimbFormInput>) -> Redirect {
-    let h = db::get_hill(&conn.0, climb.hill.as_str()).expect("Hill not found");
-    let w = db::get_warrior(&conn.0, climb.warrior.as_str()).expect("Warrior not found");
+fn create_climb(conn: DbConn, climb: Form<ClimbFormInput>) -> Result<Redirect, Status> {
+    let h = db::get_hill(&conn.0, climb.hill.as_str())?;
+    let w = db::get_warrior(&conn.0, climb.warrior.as_str())?;
     let c = models::NewClimb {
         hill: h.id,
         warrior: w.id,
         status: 0,
     };
     db::create_climb(&conn.0, &c);
-    Redirect::to(uri!(list_climbs))
+    Ok(Redirect::to(uri!(list_climbs)))
 }
 #[get("/climbs")]
-fn list_climbs(conn: DbConn) -> Template {
+fn list_climbs(conn: DbConn) -> Result<Template, Status> {
     let context = ClimbList {
-        climbs: db::get_climbs(&conn.0)
-            .iter()
-            .map(|c| {
-                let h = db::get_hill_by_id(&conn.0, c.hill).expect("Hill not found");
-                let w = db::get_warrior_by_id(&conn.0, c.warrior).expect("Warrior not found");
-                Climb {
+        climbs: db::get_climbs(&conn.0)?
+            .drain(..)
+            .map(|c| -> Result<Climb, Error> {
+                let h = db::get_hill_by_id(&conn.0, c.hill)?;
+                let w = db::get_warrior_by_id(&conn.0, c.warrior)?;
+                Ok(Climb {
                     id: c.id,
                     hill: h.name,
                     warrior: w.name,
@@ -206,19 +294,27 @@ fn list_climbs(conn: DbConn) -> Template {
                         2 => "Finished".to_string(),
                         _ => "Unknown".to_string(),
                     },
-                }
+                })
             })
-            .collect(),
+            .collect::<Result<Vec<Climb>, Error>>()?,
     };
-    Template::render("climb-index", &context)
+    Ok(Template::render("climb-index", &context))
 }
 fn main() {
+    use std::thread;
+
+    let _ = thread::spawn(|| {
+        hill::run();
+    });
+
     rocket::ignite()
         .attach(Template::fairing())
         .attach(DbConn::fairing())
+        .register(catchers![not_found])
         .mount(
             "/",
             routes![
+                home,
                 get_warrior,
                 create_warrior_form,
                 create_warrior,
@@ -235,22 +331,32 @@ fn main() {
         .launch();
 }
 
-fn parse_warrior_code(redcode: &str) -> models::NewWarrior {
+#[derive(Debug)]
+struct ParsedData {
+    pub warrior: String,
+    pub hill_key: String,
+    pub author: String,
+}
+
+fn parse_warrior_code(redcode: &str) -> ParsedData {
     lazy_static! {
         static ref NAME_RE: Regex = Regex::new(";name ([a-zA-Z0-9 ]+)").unwrap();
         static ref AUTHOR_RE: Regex = Regex::new(";author ([a-zA-Z0-9 ]+)").unwrap();
+        static ref HILL_RE: Regex = Regex::new(";redcode-([a-zA-Z0-9 ]+)").unwrap();
     }
-    let mut name = String::new();
+    let mut data = ParsedData {
+        warrior: String::new(),
+        hill_key: String::new(),
+        author: String::new(),
+    };
     for n in NAME_RE.captures_iter(redcode) {
-        name = n[1].to_string();
+        data.warrior = n[1].to_string();
     }
-    let mut author = String::new();
+    for h in HILL_RE.captures_iter(redcode) {
+        data.hill_key = h[1].to_string();
+    }
     for a in AUTHOR_RE.captures_iter(redcode) {
-        author = a[1].to_string();
+        data.author = a[1].to_string();
     }
-    models::NewWarrior {
-        name,
-        author,
-        redcode: redcode.to_string(),
-    }
+    data
 }

@@ -1,4 +1,11 @@
 table! {
+    authors (id) {
+        id -> Integer,
+        name -> Text,
+    }
+}
+
+table! {
     climbs (id) {
         id -> Integer,
         hill -> Integer,
@@ -40,12 +47,14 @@ table! {
     warriors (id) {
         id -> Integer,
         name -> Text,
-        author -> Text,
+        hill -> Integer,
+        author -> Integer,
         redcode -> Text,
     }
 }
 
 allow_tables_to_appear_in_same_query!(
+    authors,
     climbs,
     hill_warriors,
     hills,

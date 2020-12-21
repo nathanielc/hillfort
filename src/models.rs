@@ -4,15 +4,17 @@ use crate::schema::warriors;
 pub struct Warrior {
     pub id: i32,
     pub name: String,
-    pub author: String,
+    pub hill: i32,
+    pub author: i32,
     pub redcode: String,
 }
 #[derive(Debug, Insertable, AsChangeset)]
 #[table_name = "warriors"]
-pub struct NewWarrior {
-    pub name: String,
-    pub author: String,
-    pub redcode: String,
+pub struct NewWarrior<'a> {
+    pub name: &'a str,
+    pub hill: i32,
+    pub author: i32,
+    pub redcode: &'a str,
 }
 
 use crate::schema::hills;
@@ -86,4 +88,17 @@ pub struct NewClimb {
     pub hill: i32,
     pub warrior: i32,
     pub status: i32,
+}
+
+use crate::schema::authors;
+
+#[derive(Debug, serde::Serialize, Identifiable, Queryable)]
+pub struct Author {
+    pub id: i32,
+    pub name: String,
+}
+#[derive(Debug, Insertable, AsChangeset)]
+#[table_name = "authors"]
+pub struct NewAuthor<'a> {
+    pub name: &'a str,
 }

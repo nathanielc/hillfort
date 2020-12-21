@@ -1,0 +1,5 @@
+{% extends "base" %}
+
+{% block content %}
+Welcome, start submitting warriors and enjoy!
+{% endblock content %}
