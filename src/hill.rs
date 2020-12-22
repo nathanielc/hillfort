@@ -1,7 +1,6 @@
 use crossbeam_channel::{select, tick};
 use diesel::prelude::*;
 use diesel::sqlite::SqliteConnection;
-use dotenv::dotenv;
 use regex::Regex;
 use std::env;
 use std::fs::File;
@@ -16,8 +15,6 @@ use crate::error::Error;
 use crate::models::*;
 
 pub fn establish_connection() -> SqliteConnection {
-    dotenv().ok();
-
     let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
     SqliteConnection::establish(&database_url)
         .expect(&format!("Error connecting to {}", database_url))
@@ -25,6 +22,11 @@ pub fn establish_connection() -> SqliteConnection {
 pub fn run() {
     let conn = establish_connection();
     let ticker = tick(Duration::from_millis(2000));
+
+    match db::update_inprogress_climbs_to_pending(&conn) {
+        Err(e) if !e.is_not_found() => error!("Error restoring existing climbs: {}", e),
+        _ => {}
+    };
 
     loop {
         select! {
@@ -34,11 +36,11 @@ pub fn run() {
                             for c in climbs {
                                 match climb(&conn,c) {
                                     Ok(_) => {},
-                                    Err(e) => println!("Error processing climb {}", e),
+                                    Err(e) => error!("Error processing climb {}", e),
                                 }
                             }
                         }
-                        Err(e) => println!("Error retrieving pending climbs {}", e),
+                        Err(e) => error!("Error retrieving pending climbs {}", e),
                 }
             }
         }
@@ -46,7 +48,7 @@ pub fn run() {
 }
 
 fn climb(conn: &SqliteConnection, c: Climb) -> Result<(), Error> {
-    db::update_climb_status(&conn, c.id, 1)?;
+    db::update_climb_status(&conn, c.id, ClimbStatus::InProgress as i32)?;
     let hill = db::get_hill_by_id(conn, c.hill)?;
     let warrior = db::get_warrior_by_id(conn, c.warrior)?;
     let ws = db::get_warriors_on_hill(conn, hill.id)?;
@@ -54,7 +56,11 @@ fn climb(conn: &SqliteConnection, c: Climb) -> Result<(), Error> {
     let mut warriors: Vec<Warrior> = ws
         .iter()
         .map(|hw| -> Result<Warrior, Error> { Ok(db::get_warrior_by_id(conn, hw.warrior)?) })
-        .collect::<Result<Vec<Warrior>, Error>>()?;
+        .collect::<Result<Vec<Warrior>, Error>>()?
+        .drain(..)
+        // if this is a new submission of the an existing warrior remove it
+        .filter(|w| w.id != warrior.id)
+        .collect();
     warriors.push(warrior);
 
     let tmp_dir = TempDir::new("hillfort-climb")?;
@@ -95,8 +101,9 @@ fn climb(conn: &SqliteConnection, c: Climb) -> Result<(), Error> {
                 ])
                 .output()?;
             if !output.status.success() {
-                println!("STDERR: {}", String::from_utf8(output.stderr)?);
-                break;
+                error!("STDERR: {}", String::from_utf8(output.stderr)?);
+                db::update_climb_status(conn, c.id, ClimbStatus::Failed as i32)?;
+                return Ok(());
             }
             for (index, line) in output.stdout.lines().enumerate() {
                 let widx = match index {
@@ -132,10 +139,9 @@ fn climb(conn: &SqliteConnection, c: Climb) -> Result<(), Error> {
         if hw.rank > hill.slots {
             break;
         }
-        println!("HW, {:?}", hw);
         db::create_hill_warrior(conn, &hw)?;
     }
-    db::update_climb_status(&conn, c.id, 2)?;
+    db::update_climb_status(&conn, c.id, ClimbStatus::Finished as i32)?;
     Ok(())
 }
 fn write_opt(f: &mut File, h: &Hill) {

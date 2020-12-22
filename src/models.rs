@@ -90,6 +90,14 @@ pub struct NewClimb {
     pub status: i32,
 }
 
+pub enum ClimbStatus {
+    Pending,
+    InProgress,
+    Finished,
+    Failed,
+}
+
+
 use crate::schema::authors;
 
 #[derive(Debug, serde::Serialize, Identifiable, Queryable)]

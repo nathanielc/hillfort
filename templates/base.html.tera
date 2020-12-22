@@ -22,7 +22,8 @@
       <ul id="menu">
           <li><a href="/hills">Hills</a></li>
           <li><a href="/warriors">Warriors</a></li>
-          <li><a href="/climbs?only_pending=true">Climbs</a></li>
+          <li><a href="/authors">Authors</a></li>
+          <li><a href="/climbs?unfinished=true">Climbs</a></li>
           <li><a href="/hill">New Hill</a></li>
           <li><a href="/warrior">Submit Warrior</a></li>
       </ul>

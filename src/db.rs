@@ -145,9 +145,28 @@ pub fn get_climbs(conn: &SqliteConnection) -> Result<Vec<Climb>, Error> {
     use crate::schema::climbs::dsl::*;
     Ok(climbs.load::<Climb>(conn)?)
 }
+pub fn get_unfinished_climbs(conn: &SqliteConnection) -> Result<Vec<Climb>, Error> {
+    use crate::schema::climbs::dsl::*;
+    Ok(climbs
+        .filter(
+            status
+                .eq(ClimbStatus::Pending as i32)
+                .or(status.eq(ClimbStatus::InProgress as i32)),
+        )
+        .load::<Climb>(conn)?)
+}
 pub fn get_pending_climbs(conn: &SqliteConnection) -> Result<Vec<Climb>, Error> {
     use crate::schema::climbs::dsl::*;
-    Ok(climbs.filter(status.eq(0)).load::<Climb>(conn)?)
+    Ok(climbs
+        .filter(status.eq(ClimbStatus::Pending as i32))
+        .load::<Climb>(conn)?)
+}
+pub fn update_inprogress_climbs_to_pending(conn: &SqliteConnection) -> Result<(), Error> {
+    use crate::schema::climbs::dsl::*;
+    diesel::update(climbs.filter(status.eq(ClimbStatus::InProgress as i32)))
+        .set(status.eq(0))
+        .execute(conn)?;
+    Ok(())
 }
 pub fn create_climb(conn: &SqliteConnection, c: &NewClimb) -> Result<(), Error> {
     use crate::schema::climbs;

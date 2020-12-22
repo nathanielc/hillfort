@@ -1,8 +1,8 @@
 {% extends "base" %}
 
 {% block content %}
-    <h1>{% if only_pending %}Pending{% else %}All{% endif %} Climbs</h1>
-{%if only_pending %} <a href="/climbs">Show All</a>{% else %}<a href="/climbs?only_pending=true">Show Only Pending</a>{% endif %}
+    <h1>{% if unfinished %}Pending{% else %}All{% endif %} Climbs</h1>
+{%if unfinished %} <a href="/climbs">Show All</a>{% else %}<a href="/climbs?unfinished=true">Show Only Pending</a>{% endif %}
     <table>
         <tr>
             <th>ID</th>
@@ -13,8 +13,8 @@
         {% for c in climbs %}
         <tr>
             <td>{{ c.id }}</td>
-            <td><a href="hill/{{ c.hill }}">{{ c.hill }}</a></td>
-            <td><a href="warrior/{{ c.warrior }}">{{ c.warrior }}</a></td>
+            <td><a href="hill/{{ c.hill_id }}">{{ c.hill }}</a></td>
+            <td><a href="warrior/{{ c.warrior_id }}">{{ c.warrior }}</a></td>
             <td>{{ c.status }}</td>
         </tr>
         {% endfor %}
