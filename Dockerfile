@@ -24,5 +24,6 @@ COPY --from=0 /src/templates /srv/templates
 COPY --from=0 /src/pMARS-master/src/pmars /bin/pmars-server
 COPY --from=0 /src/Rocket.toml /srv/Rocket.toml
 ENV ROCKET_ADDRESS=0.0.0.0
-ENV DATABASE_URL=hillfort.db
+ENV DATABASE_URL=db/hillfort.db
+VOLUME /srv/db/
 ENTRYPOINT /bin/hillfort
