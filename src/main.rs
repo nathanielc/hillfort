@@ -350,9 +350,10 @@ struct ParsedData {
 
 fn parse_warrior_code(redcode: &str) -> ParsedData {
     lazy_static! {
-        static ref NAME_RE: Regex = Regex::new(";name ([a-zA-Z0-9 ]+)").unwrap();
-        static ref AUTHOR_RE: Regex = Regex::new(";author ([a-zA-Z0-9 ]+)").unwrap();
-        static ref HILL_RE: Regex = Regex::new(";redcode-([a-zA-Z0-9 ]+)").unwrap();
+        // [ -~] is the rang of all printable ascii chars
+        static ref NAME_RE: Regex = Regex::new(";name ([ -~]+)").unwrap();
+        static ref AUTHOR_RE: Regex = Regex::new(";author ([ -~]+)").unwrap();
+        static ref HILL_RE: Regex = Regex::new(";redcode-([ -~]+)").unwrap();
     }
     let mut data = ParsedData {
         warrior: String::new(),

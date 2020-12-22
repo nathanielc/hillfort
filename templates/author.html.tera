@@ -11,8 +11,8 @@ Past Warriors
     </tr>
         {% for w in warriors %}
         <tr>
-            <td><a href="/warrior/{{ w.id }}">{{ w.name }}</a></td>
             <td><a href="/hill/{{ w.hill_id }}">{{ w.hill }}</a></td>
+            <td><a href="/warrior/{{ w.id }}">{{ w.name }}</a></td>
             <td>{{ w.rank }}</td>
         </tr>
         {% endfor %}
