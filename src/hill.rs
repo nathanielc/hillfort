@@ -88,8 +88,9 @@ fn climb(conn: &SqliteConnection, c: Climb) -> Result<(), Error> {
     lazy_static! {
         static ref SCORE_RE: Regex = Regex::new("([0-9]+) ([0-9]+)").unwrap();
     }
-    for (i, _) in (&warriors).iter().enumerate() {
-        for (j, _) in (&warriors).iter().enumerate() {
+    let n = warriors.len();
+    for i in 0..n {
+        for j in i..n {
             let output = Command::new("pmars-server")
                 .args(&[
                     "-k",
@@ -118,15 +119,11 @@ fn climb(conn: &SqliteConnection, c: Climb) -> Result<(), Error> {
                     hws[widx].tie += ties;
                     hws[widx].loss += (hill.rounds as f32) - wins - ties;
                 }
-                if i == j {
-                    // do not count self play twice
-                    break;
-                }
             }
         }
     }
-    let total_rounds = hill.rounds as f32 * warriors.len() as f32;
     for hw in &mut hws {
+        let total_rounds = hw.win + hw.loss + hw.tie;
         hw.win = hw.win / total_rounds * 100.0;
         hw.loss = hw.loss / total_rounds * 100.0;
         hw.tie = hw.tie / total_rounds * 100.0;
