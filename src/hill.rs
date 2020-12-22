@@ -1,17 +1,20 @@
+use base64;
 use crossbeam_channel::{select, tick};
 use diesel::prelude::*;
 use diesel::sqlite::SqliteConnection;
 use regex::Regex;
+use sha2::Digest;
+use sha2::Sha256;
 use std::env;
 use std::fs::File;
-use std::io::{BufRead, Write};
+use std::io::{self, BufRead, Write};
 use std::path::PathBuf;
 use std::process::Command;
 use std::time::Duration;
 use tempdir::TempDir;
 
 use crate::db;
-use crate::error::Error;
+use crate::error::{Code, Error};
 use crate::models::*;
 
 pub fn establish_connection() -> SqliteConnection {
@@ -64,9 +67,10 @@ fn climb(conn: &SqliteConnection, c: Climb) -> Result<(), Error> {
     warriors.push(warrior);
 
     let tmp_dir = TempDir::new("hillfort-climb")?;
-    let opt = tmp_dir.path().join("hill.opt");
-    let mut opt_f = File::create(&opt)?;
-    write_opt(&mut opt_f, &hill);
+    let opt_path = tmp_dir.path().join("hill.opt");
+    let mut opt_f = File::create(&opt_path)?;
+    let opt_str = opt_string(&hill);
+    opt_f.write_all(opt_str.clone().as_bytes())?;
 
     let mut w_paths: Vec<PathBuf> = Vec::with_capacity(warriors.len());
     let mut hws: Vec<NewHillWarrior> = Vec::with_capacity(warriors.len());
@@ -85,41 +89,33 @@ fn climb(conn: &SqliteConnection, c: Climb) -> Result<(), Error> {
             score: 0.0,
         });
     }
-    lazy_static! {
-        static ref SCORE_RE: Regex = Regex::new("([0-9]+) ([0-9]+)").unwrap();
-    }
     let n = warriors.len();
     for i in 0..n {
         for j in i..n {
-            let output = Command::new("pmars-server")
-                .args(&[
-                    "-k",
-                    "-b",
-                    "-@",
-                    opt.to_str().unwrap(),
-                    w_paths[i].to_str().unwrap(),
-                    w_paths[j].to_str().unwrap(),
-                ])
-                .output()?;
-            if !output.status.success() {
-                error!("STDERR: {}", String::from_utf8(output.stderr)?);
-                db::update_climb_status(conn, c.id, ClimbStatus::Failed as i32)?;
-                return Ok(());
-            }
-            for (index, line) in output.stdout.lines().enumerate() {
-                let widx = match index {
-                    0 => i,
-                    1 => j,
-                    _ => panic!("got bad stdout"),
-                };
-                for n in SCORE_RE.captures_iter(line.unwrap().as_str()) {
-                    let wins = n[1].parse::<f32>().unwrap();
-                    let ties = n[2].parse::<f32>().unwrap();
-                    hws[widx].win += wins;
-                    hws[widx].tie += ties;
-                    hws[widx].loss += (hill.rounds as f32) - wins - ties;
+            match compute_battle(
+                conn,
+                &hill,
+                &warriors,
+                &w_paths,
+                i,
+                j,
+                &opt_path,
+                opt_str.as_str(),
+            ) {
+                Ok(battle) => {
+                    hws[i].win += battle.a_win as f32;
+                    hws[i].tie += battle.a_tie as f32;
+                    hws[i].loss += battle.a_loss as f32;
+
+                    hws[j].win += battle.b_win as f32;
+                    hws[j].tie += battle.b_tie as f32;
+                    hws[j].loss += battle.b_loss as f32;
                 }
-            }
+                Err(e) => {
+                    db::update_climb_status(conn, c.id, ClimbStatus::Failed as i32)?;
+                    return Err(e);
+                }
+            };
         }
     }
     for hw in &mut hws {
@@ -134,22 +130,106 @@ fn climb(conn: &SqliteConnection, c: Climb) -> Result<(), Error> {
     for (rank, hw) in (&mut hws).iter_mut().enumerate() {
         hw.rank = rank as i32 + 1;
         if hw.rank > hill.slots {
-            break;
+            db::delete_pushed_off_battles(conn, hill.id, hw.warrior)?;
+            continue;
         }
         db::create_hill_warrior(conn, &hw)?;
     }
     db::update_climb_status(&conn, c.id, ClimbStatus::Finished as i32)?;
     Ok(())
 }
-fn write_opt(f: &mut File, h: &Hill) {
-    write!(f, ";redcode-{}\n", h.key).unwrap();
+fn opt_string(h: &Hill) -> String {
+    let mut s = String::new();
+    s.push_str(format!(";redcode-{}\n", h.key).as_str());
     if h.instruction_set == 88 {
-        write!(f, "-8\n").unwrap();
+        s.push_str(format!("-8\n").as_str());
     }
-    write!(f, "-s {}\n", h.core_size).unwrap();
-    write!(f, "-c {}\n", h.max_cycles).unwrap();
-    write!(f, "-p {}\n", h.max_processes).unwrap();
-    write!(f, "-l {}\n", h.max_warrior_length).unwrap();
-    write!(f, "-d {}\n", h.min_distance).unwrap();
-    write!(f, "-r {}\n", h.rounds).unwrap();
+    s.push_str(format!("-s {}\n", h.core_size).as_str());
+    s.push_str(format!("-c {}\n", h.max_cycles).as_str());
+    s.push_str(format!("-p {}\n", h.max_processes).as_str());
+    s.push_str(format!("-l {}\n", h.max_warrior_length).as_str());
+    s.push_str(format!("-d {}\n", h.min_distance).as_str());
+    s.push_str(format!("-r {}\n", h.rounds).as_str());
+    s
+}
+
+fn compute_battle<'a>(
+    conn: &SqliteConnection,
+    hill: &Hill,
+    warriors: &Vec<Warrior>,
+    w_paths: &Vec<PathBuf>,
+    i: usize,
+    j: usize,
+    opt_path: &PathBuf,
+    opt_str: &'a str,
+) -> Result<Battle, Error> {
+    let mut digest = Sha256::default();
+    digest.update(opt_str.as_bytes());
+    digest.update(warriors[i].redcode.as_bytes());
+    digest.update(warriors[j].redcode.as_bytes());
+    let hash = base64::encode(digest.finalize());
+    match db::get_battle_by_hash(conn, hash.as_str()) {
+        Ok(b) => return Ok(b),
+        Err(e) if e.is_not_found() => {
+            // fall through to perform real battle
+        }
+        Err(e) => return Err(e),
+    }
+
+    let output = Command::new("pmars-server")
+        .args(&[
+            "-k",
+            "-b",
+            "-@",
+            opt_path.to_str().unwrap(),
+            w_paths[i].to_str().unwrap(),
+            w_paths[j].to_str().unwrap(),
+        ])
+        .output()?;
+    if !output.status.success() {
+        error!("STDERR: {}", String::from_utf8(output.stderr)?);
+        return Err(Error {
+            code: Code::Internal,
+        });
+    }
+    let mut newbattle = NewBattle {
+        hash: hash.as_str(),
+        hill: hill.id,
+        warrior_a: warriors[i].id,
+        warrior_b: warriors[j].id,
+        a_win: 0,
+        a_loss: 0,
+        a_tie: 0,
+        b_win: 0,
+        b_loss: 0,
+        b_tie: 0,
+    };
+    lazy_static! {
+        static ref SCORE_RE: Regex = Regex::new("([0-9]+) ([0-9]+)").unwrap();
+    }
+    let lines = output
+        .stdout
+        .lines()
+        .collect::<Result<Vec<String>, io::Error>>()?;
+    let (a_win, a_tie) = parse_score_line(lines[0].as_str());
+    let (b_win, b_tie) = parse_score_line(lines[1].as_str());
+    newbattle.a_win = a_win;
+    newbattle.a_tie = a_tie;
+    newbattle.a_loss = hill.rounds - a_win - a_tie;
+    newbattle.b_win = b_win;
+    newbattle.b_tie = b_tie;
+    newbattle.b_loss = hill.rounds - b_win - b_tie;
+    db::create_battle(conn, &newbattle)
+}
+
+fn parse_score_line(line: &str) -> (i32, i32) {
+    lazy_static! {
+        static ref SCORE_RE: Regex = Regex::new("([0-9]+) ([0-9]+)").unwrap();
+    }
+    for n in SCORE_RE.captures_iter(line) {
+        let wins = n[1].parse::<i32>().unwrap();
+        let ties = n[2].parse::<i32>().unwrap();
+        return (wins, ties);
+    }
+    (0, 0)
 }

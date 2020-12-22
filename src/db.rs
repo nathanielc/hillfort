@@ -82,12 +82,12 @@ pub fn get_hills(conn: &SqliteConnection) -> Result<Vec<Hill>, Error> {
 }
 pub fn create_hill(conn: &SqliteConnection, h: &NewHill) -> Result<Hill, Error> {
     use crate::schema::hills;
-    let _ = match get_hill(conn, h.name.as_str()) {
+    let _ = match get_hill(conn, h.name) {
         Ok(existing) => diesel::update(&existing).set(h).execute(conn)?,
         Err(e) if e.is_not_found() => diesel::insert_into(hills::table).values(h).execute(conn)?,
         Err(e) => return Err(e),
     };
-    get_hill(conn, h.name.as_str())
+    get_hill(conn, h.name)
 }
 pub fn get_warriors_on_hill<'a>(
     conn: &SqliteConnection,
@@ -228,4 +228,27 @@ pub fn create_author(conn: &SqliteConnection, a: &NewAuthor) -> Result<Author, E
 pub fn get_warriors_from_author(conn: &SqliteConnection, aid: i32) -> Result<Vec<Warrior>, Error> {
     use crate::schema::warriors::dsl::*;
     Ok(warriors.filter(author.eq(aid)).load::<Warrior>(conn)?)
+}
+pub fn get_battle_by_hash<'a>(conn: &SqliteConnection, bhash: &'a str) -> Result<Battle, Error> {
+    use crate::schema::battles::dsl::*;
+    let mut list = battles.filter(hash.eq(bhash)).load::<Battle>(conn)?;
+    match list.pop() {
+        Some(w) => Ok(w),
+        None => Err(Error {
+            code: Code::NotFound,
+        }),
+    }
+}
+pub fn create_battle<'a>(conn: &SqliteConnection, b: &NewBattle) -> Result<Battle, Error> {
+    use crate::schema::battles;
+    diesel::insert_into(battles::table)
+        .values(b)
+        .execute(conn)?;
+    get_battle_by_hash(conn, b.hash)
+}
+pub fn delete_pushed_off_battles(conn: &SqliteConnection, hid: i32, wid: i32) -> Result<(), Error> {
+    use crate::schema::battles::dsl::*;
+    diesel::delete(battles.filter(hill.eq(hid)).filter(warrior_a.eq(wid))).execute(conn)?;
+    diesel::delete(battles.filter(hill.eq(hid)).filter(warrior_b.eq(wid))).execute(conn)?;
+    Ok(())
 }

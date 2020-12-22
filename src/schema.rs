@@ -6,6 +6,22 @@ table! {
 }
 
 table! {
+    battles (id) {
+        id -> Integer,
+        hash -> Text,
+        hill -> Integer,
+        warrior_a -> Integer,
+        warrior_b -> Integer,
+        a_win -> Integer,
+        a_loss -> Integer,
+        a_tie -> Integer,
+        b_win -> Integer,
+        b_loss -> Integer,
+        b_tie -> Integer,
+    }
+}
+
+table! {
     climbs (id) {
         id -> Integer,
         hill -> Integer,
@@ -55,6 +71,7 @@ table! {
 
 allow_tables_to_appear_in_same_query!(
     authors,
+    battles,
     climbs,
     hill_warriors,
     hills,

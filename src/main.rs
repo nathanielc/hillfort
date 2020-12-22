@@ -12,6 +12,7 @@ extern crate lazy_static;
 extern crate rocket;
 #[macro_use]
 extern crate rocket_contrib;
+extern crate base64;
 extern crate regex;
 
 use regex::Regex;
@@ -216,8 +217,8 @@ fn create_hill_form() -> Result<Template, Status> {
 #[post("/hill", data = "<hill>")]
 fn create_hill(conn: DbConn, hill: Form<HillFormInput>) -> Result<Redirect, Status> {
     let h = models::NewHill {
-        name: hill.name.clone(),
-        key: hill.key.clone(),
+        name: hill.name.as_str(),
+        key: hill.key.as_str(),
         instruction_set: hill.instruction_set,
         core_size: hill.core_size,
         max_cycles: hill.max_cycles,

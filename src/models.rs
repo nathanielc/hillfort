@@ -35,9 +35,9 @@ pub struct Hill {
 }
 #[derive(Debug, Insertable, AsChangeset)]
 #[table_name = "hills"]
-pub struct NewHill {
-    pub name: String,
-    pub key: String,
+pub struct NewHill<'a> {
+    pub name: &'a str,
+    pub key: &'a str,
     pub instruction_set: i32,
     pub core_size: i32,
     pub max_cycles: i32,
@@ -97,7 +97,6 @@ pub enum ClimbStatus {
     Failed,
 }
 
-
 use crate::schema::authors;
 
 #[derive(Debug, serde::Serialize, Identifiable, Queryable)]
@@ -109,4 +108,35 @@ pub struct Author {
 #[table_name = "authors"]
 pub struct NewAuthor<'a> {
     pub name: &'a str,
+}
+
+use crate::schema::battles;
+
+#[derive(Debug, serde::Serialize, Identifiable, Queryable)]
+pub struct Battle {
+    pub id: i32,
+    pub hash: String,
+    pub hill: i32,
+    pub warrior_a: i32,
+    pub warrior_b: i32,
+    pub a_win: i32,
+    pub a_loss: i32,
+    pub a_tie: i32,
+    pub b_win: i32,
+    pub b_loss: i32,
+    pub b_tie: i32,
+}
+#[derive(Debug, Insertable, AsChangeset)]
+#[table_name = "battles"]
+pub struct NewBattle<'a> {
+    pub hash: &'a str,
+    pub hill: i32,
+    pub warrior_a: i32,
+    pub warrior_b: i32,
+    pub a_win: i32,
+    pub a_loss: i32,
+    pub a_tie: i32,
+    pub b_win: i32,
+    pub b_loss: i32,
+    pub b_tie: i32,
 }
