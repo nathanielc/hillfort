@@ -32,15 +32,24 @@ pub fn run() {
         select! {
             recv(ticker) -> _ => {
                  match db::get_pending_climbs(&conn){
-                        Ok(climbs) => {
-                            for c in climbs {
-                                match climb(&conn,c) {
-                                    Ok(_) => {},
-                                    Err(e) => error!("Error processing climb {}", e),
+                    Ok(climbs) => {
+                        for c in climbs {
+                            let id = c.id;
+                            match climb(&conn,c) {
+                                Ok(_) => {},
+                                Err(e) => {
+                                    error!("Error processing climb {}", e);
+                                    match db::update_climb_status(&conn, id, ClimbStatus::Failed as i32) {
+                                        Ok(_) => {},
+                                        Err(e) => {
+                                            error!("Error updating failed climb {}", e);
+                                        }
+                                    }
                                 }
                             }
                         }
-                        Err(e) => error!("Error retrieving pending climbs {}", e),
+                    }
+                    Err(e) => error!("Error retrieving pending climbs {}", e),
                 }
             }
         }
@@ -102,10 +111,7 @@ fn climb(conn: &SqliteConnection, c: Climb) -> Result<(), Error> {
                     hws[j].tie += battle.b_tie as f32;
                     hws[j].loss += battle.b_loss as f32;
                 }
-                Err(e) => {
-                    db::update_climb_status(conn, c.id, ClimbStatus::Failed as i32)?;
-                    return Err(e);
-                }
+                Err(e) => return Err(e),
             };
         }
     }
