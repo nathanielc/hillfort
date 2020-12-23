@@ -3,6 +3,7 @@
 {% block content %}
 <h1>Warrior: {{ name }}</h1>
 Hill: <a href="/hill/{{hill_id}}">{{hill}}</a><br>
+Warrior: <a href="/warrior/{{id}}">{{ name }}</a><br>
 Author: <a href="/author/{{author_id}}">{{author}}</a><br>
 Rank: {{ rank }} <br>
 Battles: <br>

@@ -289,10 +289,10 @@ pub fn get_battles_with_warrior(
         .filter(warrior_a.eq(wid))
         .load::<Battle>(conn)?;
     // Swap warrior ids and append
-    let others = battles
+    let mut others = battles
         .filter(hill.eq(hid))
         .filter(warrior_b.eq(wid))
         .load::<Battle>(conn)?;
-    list.extend(others);
+    list.extend(others.drain(..).filter(|b| b.warrior_a != wid));
     Ok(list)
 }

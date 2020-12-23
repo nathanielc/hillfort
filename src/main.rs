@@ -343,6 +343,7 @@ fn list_authors(conn: DbConn) -> Result<Template, Status> {
 
 #[derive(Debug, serde::Serialize)]
 struct WarriorBattles {
+    id: i32,
     name: String,
     rank: i32,
     hill: String,
@@ -372,6 +373,7 @@ fn get_battle(conn: DbConn, id: &RawStr) -> Result<Template, Status> {
     let a = db::get_author_by_id(&conn.0, w.author)?;
     let hw = db::get_warrior_from_hill(&conn.0, h.id, id)?;
     let mut context = WarriorBattles {
+        id,
         name: w.name,
         rank: hw.rank,
         hill: h.name,
