@@ -12,7 +12,6 @@ extern crate lazy_static;
 extern crate rocket;
 #[macro_use]
 extern crate rocket_contrib;
-extern crate base64;
 extern crate regex;
 
 use regex::Regex;
@@ -342,6 +341,107 @@ fn list_authors(conn: DbConn) -> Result<Template, Status> {
     Ok(Template::render("author-index", &context))
 }
 
+#[derive(Debug, serde::Serialize)]
+struct WarriorBattles {
+    name: String,
+    rank: i32,
+    hill: String,
+    hill_id: i32,
+    author: String,
+    author_id: i32,
+    warriors: Vec<WarriorBattle>,
+}
+#[derive(Debug, serde::Serialize)]
+struct WarriorBattle {
+    id: i32,
+    name: String,
+    rank: i32,
+    win: f32,
+    loss: f32,
+    tie: f32,
+    score_taken: f32,
+    score_given: f32,
+}
+
+#[get("/battles/warrior/<id>")]
+fn get_battle(conn: DbConn, id: &RawStr) -> Result<Template, Status> {
+    let id = to_id(id)?;
+    let w = db::get_warrior_by_id(&conn.0, id)?;
+    let h = db::get_hill_by_id(&conn.0, w.hill)?;
+    let hid = h.id;
+    let a = db::get_author_by_id(&conn.0, w.author)?;
+    let hw = db::get_warrior_from_hill(&conn.0, h.id, id)?;
+    let mut context = WarriorBattles {
+        name: w.name,
+        rank: hw.rank,
+        hill: h.name,
+        hill_id: h.id,
+        author: a.name,
+        author_id: a.id,
+        warriors: db::get_battles_with_warrior(&conn.0, h.id, id)?
+            .drain(..)
+            .map(|battle| -> Result<WarriorBattle, Error> {
+                let other_id = if battle.warrior_a != id {
+                    battle.warrior_a
+                } else {
+                    battle.warrior_b
+                };
+                let other = db::get_warrior_by_id(&conn.0, other_id)?;
+                let hw = db::get_warrior_from_hill(&conn.0, hid, other_id)?;
+                let a_scores = battle_scores(battle.a_win, battle.a_loss, battle.a_tie);
+                let b_scores = battle_scores(battle.b_win, battle.b_loss, battle.b_tie);
+                if battle.warrior_a != id {
+                    Ok(WarriorBattle {
+                        id: other_id,
+                        name: other.name,
+                        rank: hw.rank,
+                        win: a_scores.win,
+                        loss: a_scores.loss,
+                        tie: a_scores.tie,
+                        score_taken: a_scores.score,
+                        score_given: b_scores.score,
+                    })
+                } else {
+                    Ok(WarriorBattle {
+                        id: other_id,
+                        name: other.name,
+                        rank: hw.rank,
+                        win: b_scores.win,
+                        loss: b_scores.loss,
+                        tie: b_scores.tie,
+                        score_taken: b_scores.score,
+                        score_given: a_scores.score,
+                    })
+                }
+            })
+            .collect::<Result<Vec<WarriorBattle>, Error>>()?,
+    };
+    context
+        .warriors
+        .sort_by(|a, b| b.score_taken.partial_cmp(&a.score_taken).unwrap());
+    Ok(Template::render("battles", &context))
+}
+
+struct BattleScore {
+    win: f32,
+    loss: f32,
+    tie: f32,
+    score: f32,
+}
+fn battle_scores(win: i32, loss: i32, tie: i32) -> BattleScore {
+    let total_rounds = (win + loss + tie) as f32;
+    let win = win as f32 / total_rounds * 100.0;
+    let loss = loss as f32 / total_rounds * 100.0;
+    let tie = tie as f32 / total_rounds * 100.0;
+    let score = win * 3.0 + tie;
+    BattleScore {
+        win,
+        loss,
+        tie,
+        score,
+    }
+}
+
 #[derive(Debug)]
 struct ParsedData {
     pub warrior: String,
@@ -414,6 +514,7 @@ fn main() {
                 list_climbs,
                 get_author,
                 list_authors,
+                get_battle,
             ],
         )
         .launch();

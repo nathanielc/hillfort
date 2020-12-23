@@ -2,6 +2,30 @@
 
 {% block content %}
 <h1>Hill: {{ hill.name }}</h1>
+
+<table>
+    <tr>
+        <th>Rank</th>
+        <th>Warrior</th>
+        <th>Author</th>
+        <th>W%</th>
+        <th>L%</th>
+        <th>T%</th>
+        <th>Score</th>
+    </tr>
+        {% for w in warriors %}
+        <tr>
+            <td>{{ w.rank }}</td>
+            <td><a href="/battles/warrior/{{ w.id }}">{{ w.name }}</a></td>
+            <td><a href="/author/{{ w.author_id }}">{{ w.author }}</a></td>
+            <td>{{ w.win|round(precision=1) }}</td>
+            <td>{{ w.loss|round(precision=1) }}</td>
+            <td>{{ w.tie|round(precision=1)  }}</td>
+            <td>{{ w.score|round(precision=1) }}</td>
+        </tr>
+        {% endfor %}
+</table>
+
 <table>
     <tr>
         <th>Setting</th>
@@ -43,28 +67,5 @@
         <td>Slots</td>
         <td>{{hill.slots}}</td>
     </tr>
-</table>
-
-<table>
-    <tr>
-        <th>Rank</th>
-        <th>Warrior</th>
-        <th>Author</th>
-        <th>W%</th>
-        <th>L%</th>
-        <th>T%</th>
-        <th>Score</th>
-    </tr>
-        {% for w in warriors %}
-        <tr>
-            <td>{{ w.rank }}</td>
-            <td><a href="/warrior/{{ w.id }}">{{ w.name }}</a></td>
-            <td><a href="/author/{{ w.author_id }}">{{ w.author }}</a></td>
-            <td>{{ w.win|round(precision=1) }}</td>
-            <td>{{ w.loss|round(precision=1) }}</td>
-            <td>{{ w.tie|round(precision=1)  }}</td>
-            <td>{{ w.score|round(precision=1) }}</td>
-        </tr>
-        {% endfor %}
 </table>
 {% endblock content %}

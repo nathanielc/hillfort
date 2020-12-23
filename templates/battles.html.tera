@@ -1,0 +1,35 @@
+{% extends "base" %}
+
+{% block content %}
+<h1>Warrior: {{ name }}</h1>
+Hill: <a href="/hill/{{hill_id}}">{{hill}}</a><br>
+Author: <a href="/author/{{author_id}}">{{author}}</a><br>
+Rank: {{ rank }} <br>
+Battles: <br>
+<table>
+    <tr>
+        <th>Rank</th>
+        <th>Warrior</th>
+        <th>W%</th>
+        <th>L%</th>
+        <th>T%</th>
+        <th>Score Taken</th>
+        <th>Score Given</th>
+    </tr>
+    {% for w in warriors %}
+    <tr>
+        <td>{{ w.rank }}</td>
+        <td><a href="/battles/warrior/{{ w.id }}">{{ w.name }}</a></td>
+        <td>{{ w.win|round(precision=1) }}</td>
+        <td>{{ w.loss|round(precision=1) }}</td>
+        <td>{{ w.tie|round(precision=1) }}</td>
+        <td>{{ w.score_taken|round(precision=1) }}</td>
+        <td>{{ w.score_given|round(precision=1) }}</td>
+    </tr>
+    {% endfor %}
+</table>
+
+Each row represents the win, loss, and tie percentages of the warrior in the row against {{name}}.<br>
+The interpretation is then, that the warriors at the top of the list did the best against {{name}}.<br>
+
+{% endblock content %}

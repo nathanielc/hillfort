@@ -1,10 +1,7 @@
-use base64;
 use crossbeam_channel::{select, tick};
 use diesel::prelude::*;
 use diesel::sqlite::SqliteConnection;
 use regex::Regex;
-use sha2::Digest;
-use sha2::Sha256;
 use std::env;
 use std::fs::File;
 use std::io::{self, BufRead, Write};
@@ -54,6 +51,7 @@ fn climb(conn: &SqliteConnection, c: Climb) -> Result<(), Error> {
     db::update_climb_status(&conn, c.id, ClimbStatus::InProgress as i32)?;
     let hill = db::get_hill_by_id(conn, c.hill)?;
     let warrior = db::get_warrior_by_id(conn, c.warrior)?;
+    let wid = warrior.id;
     let ws = db::get_warriors_on_hill(conn, hill.id)?;
 
     let mut warriors: Vec<Warrior> = ws
@@ -62,7 +60,7 @@ fn climb(conn: &SqliteConnection, c: Climb) -> Result<(), Error> {
         .collect::<Result<Vec<Warrior>, Error>>()?
         .drain(..)
         // if this is a new submission of the an existing warrior remove it
-        .filter(|w| w.id != warrior.id)
+        .filter(|w| w.id != wid)
         .collect();
     warriors.push(warrior);
 
@@ -89,19 +87,12 @@ fn climb(conn: &SqliteConnection, c: Climb) -> Result<(), Error> {
             score: 0.0,
         });
     }
+
+    db::delete_battles_with_warrior(conn, hill.id, wid)?;
     let n = warriors.len();
     for i in 0..n {
         for j in i..n {
-            match compute_battle(
-                conn,
-                &hill,
-                &warriors,
-                &w_paths,
-                i,
-                j,
-                &opt_path,
-                opt_str.as_str(),
-            ) {
+            match compute_battle(conn, &hill, wid, &warriors, &w_paths, i, j, &opt_path) {
                 Ok(battle) => {
                     hws[i].win += battle.a_win as f32;
                     hws[i].tie += battle.a_tie as f32;
@@ -130,7 +121,7 @@ fn climb(conn: &SqliteConnection, c: Climb) -> Result<(), Error> {
     for (rank, hw) in (&mut hws).iter_mut().enumerate() {
         hw.rank = rank as i32 + 1;
         if hw.rank > hill.slots {
-            db::delete_pushed_off_battles(conn, hill.id, hw.warrior)?;
+            db::delete_battles_with_warrior(conn, hill.id, hw.warrior)?;
             continue;
         }
         db::create_hill_warrior(conn, &hw)?;
@@ -156,24 +147,21 @@ fn opt_string(h: &Hill) -> String {
 fn compute_battle<'a>(
     conn: &SqliteConnection,
     hill: &Hill,
+    wid: i32,
     warriors: &Vec<Warrior>,
     w_paths: &Vec<PathBuf>,
     i: usize,
     j: usize,
     opt_path: &PathBuf,
-    opt_str: &'a str,
 ) -> Result<Battle, Error> {
-    let mut digest = Sha256::default();
-    digest.update(opt_str.as_bytes());
-    digest.update(warriors[i].redcode.as_bytes());
-    digest.update(warriors[j].redcode.as_bytes());
-    let hash = base64::encode(digest.finalize());
-    match db::get_battle_by_hash(conn, hash.as_str()) {
-        Ok(b) => return Ok(b),
-        Err(e) if e.is_not_found() => {
-            // fall through to perform real battle
+    if warriors[i].id != wid && warriors[j].id != wid {
+        match db::get_battle_by_ids(conn, hill.id, warriors[i].id, warriors[j].id) {
+            Ok(b) => return Ok(b),
+            Err(e) if e.is_not_found() => {
+                // do nothing and perform battle
+            }
+            Err(e) => return Err(e),
         }
-        Err(e) => return Err(e),
     }
 
     let output = Command::new("pmars-server")
@@ -193,7 +181,6 @@ fn compute_battle<'a>(
         });
     }
     let mut newbattle = NewBattle {
-        hash: hash.as_str(),
         hill: hill.id,
         warrior_a: warriors[i].id,
         warrior_b: warriors[j].id,

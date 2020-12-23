@@ -115,7 +115,6 @@ use crate::schema::battles;
 #[derive(Debug, serde::Serialize, Identifiable, Queryable)]
 pub struct Battle {
     pub id: i32,
-    pub hash: String,
     pub hill: i32,
     pub warrior_a: i32,
     pub warrior_b: i32,
@@ -128,8 +127,7 @@ pub struct Battle {
 }
 #[derive(Debug, Insertable, AsChangeset)]
 #[table_name = "battles"]
-pub struct NewBattle<'a> {
-    pub hash: &'a str,
+pub struct NewBattle {
     pub hill: i32,
     pub warrior_a: i32,
     pub warrior_b: i32,

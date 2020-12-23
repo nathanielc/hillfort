@@ -8,7 +8,6 @@ table! {
 table! {
     battles (id) {
         id -> Integer,
-        hash -> Text,
         hill -> Integer,
         warrior_a -> Integer,
         warrior_b -> Integer,

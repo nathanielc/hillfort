@@ -229,14 +229,35 @@ pub fn get_warriors_from_author(conn: &SqliteConnection, aid: i32) -> Result<Vec
     use crate::schema::warriors::dsl::*;
     Ok(warriors.filter(author.eq(aid)).load::<Warrior>(conn)?)
 }
-pub fn get_battle_by_hash<'a>(conn: &SqliteConnection, bhash: &'a str) -> Result<Battle, Error> {
+pub fn get_battle_by_ids<'a>(
+    conn: &SqliteConnection,
+    hid: i32,
+    wx: i32,
+    wy: i32,
+) -> Result<Battle, Error> {
     use crate::schema::battles::dsl::*;
-    let mut list = battles.filter(hash.eq(bhash)).load::<Battle>(conn)?;
+    let mut list = battles
+        .filter(hill.eq(hid))
+        .filter(warrior_a.eq(wx))
+        .filter(warrior_b.eq(wy))
+        .load::<Battle>(conn)?;
     match list.pop() {
         Some(w) => Ok(w),
-        None => Err(Error {
-            code: Code::NotFound,
-        }),
+        None => {
+            // Swap warrior ids and try again
+            let mut list = battles
+                .filter(hill.eq(hid))
+                .filter(warrior_a.eq(wy))
+                .filter(warrior_b.eq(wx))
+                .load::<Battle>(conn)?;
+
+            match list.pop() {
+                Some(w) => Ok(w),
+                None => Err(Error {
+                    code: Code::NotFound,
+                }),
+            }
+        }
     }
 }
 pub fn create_battle<'a>(conn: &SqliteConnection, b: &NewBattle) -> Result<Battle, Error> {
@@ -244,11 +265,34 @@ pub fn create_battle<'a>(conn: &SqliteConnection, b: &NewBattle) -> Result<Battl
     diesel::insert_into(battles::table)
         .values(b)
         .execute(conn)?;
-    get_battle_by_hash(conn, b.hash)
+    get_battle_by_ids(conn, b.hill, b.warrior_a, b.warrior_b)
 }
-pub fn delete_pushed_off_battles(conn: &SqliteConnection, hid: i32, wid: i32) -> Result<(), Error> {
+pub fn delete_battles_with_warrior(
+    conn: &SqliteConnection,
+    hid: i32,
+    wid: i32,
+) -> Result<(), Error> {
     use crate::schema::battles::dsl::*;
     diesel::delete(battles.filter(hill.eq(hid)).filter(warrior_a.eq(wid))).execute(conn)?;
     diesel::delete(battles.filter(hill.eq(hid)).filter(warrior_b.eq(wid))).execute(conn)?;
     Ok(())
+}
+
+pub fn get_battles_with_warrior(
+    conn: &SqliteConnection,
+    hid: i32,
+    wid: i32,
+) -> Result<Vec<Battle>, Error> {
+    use crate::schema::battles::dsl::*;
+    let mut list = battles
+        .filter(hill.eq(hid))
+        .filter(warrior_a.eq(wid))
+        .load::<Battle>(conn)?;
+    // Swap warrior ids and append
+    let others = battles
+        .filter(hill.eq(hid))
+        .filter(warrior_b.eq(wid))
+        .load::<Battle>(conn)?;
+    list.extend(others);
+    Ok(list)
 }
