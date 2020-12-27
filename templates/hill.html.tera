@@ -12,6 +12,7 @@
         <th>L%</th>
         <th>T%</th>
         <th>Score</th>
+        <th>Age</th>
     </tr>
         {% for w in warriors %}
         <tr>
@@ -22,6 +23,7 @@
             <td>{{ w.loss|round(precision=1) }}</td>
             <td>{{ w.tie|round(precision=1)  }}</td>
             <td>{{ w.score|round(precision=1) }}</td>
+            <td>{{ w.age }}</td>
         </tr>
         {% endfor %}
 </table>

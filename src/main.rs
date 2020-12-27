@@ -176,6 +176,7 @@ struct HillWarrior {
     pub loss: f32,
     pub tie: f32,
     pub score: f32,
+    pub age: i32,
 }
 
 #[get("/hill/<id>")]
@@ -200,6 +201,7 @@ fn get_hill(conn: DbConn, id: &RawStr) -> Result<Template, Status> {
                     loss: hw.loss,
                     tie: hw.tie,
                     score: hw.score,
+                    age: hw.age,
                 })
             })
             .collect::<Result<Vec<HillWarrior>, Error>>()?,

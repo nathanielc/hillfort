@@ -60,6 +60,7 @@ pub struct HillWarrior {
     pub loss: f32,
     pub tie: f32,
     pub score: f32,
+    pub age: i32,
 }
 #[derive(Debug, Insertable, AsChangeset)]
 #[table_name = "hill_warriors"]
@@ -71,6 +72,7 @@ pub struct NewHillWarrior {
     pub loss: f32,
     pub tie: f32,
     pub score: f32,
+    pub age: i32,
 }
 
 use crate::schema::climbs;

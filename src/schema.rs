@@ -39,6 +39,7 @@ table! {
         loss -> Float,
         tie -> Float,
         score -> Float,
+        age -> Integer,
     }
 }
 

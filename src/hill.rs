@@ -86,6 +86,19 @@ fn climb(conn: &SqliteConnection, c: Climb) -> Result<(), Error> {
         let mut f = File::create(&p)?;
         f.write_all(w.redcode.as_bytes())?;
         w_paths.push(p);
+        let hw = ws.iter().find_map(|hw| if hw.warrior == w.id {
+            Some(hw)
+        } else {
+            None
+        });
+        let age = match hw {
+            Some(hw) => if hw.warrior == wid {
+                0
+            } else {
+                hw.age+1
+            },
+            None => 0,
+        };
         hws.push(NewHillWarrior {
             hill: hill.id,
             warrior: w.id,
@@ -94,6 +107,7 @@ fn climb(conn: &SqliteConnection, c: Climb) -> Result<(), Error> {
             loss: 0.0,
             tie: 0.0,
             score: 0.0,
+            age: age,
         });
     }
 
