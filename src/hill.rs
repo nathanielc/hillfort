@@ -117,13 +117,23 @@ fn climb(conn: &SqliteConnection, c: Climb) -> Result<(), Error> {
         for j in i..n {
             match compute_battle(conn, &hill, wid, &warriors, &w_paths, i, j, &opt_path) {
                 Ok(battle) => {
-                    hws[i].win += battle.a_win as f32;
-                    hws[i].tie += battle.a_tie as f32;
-                    hws[i].loss += battle.a_loss as f32;
+                    if battle.warrior_a == warriors[i].id {
+                        hws[i].win += battle.a_win as f32;
+                        hws[i].tie += battle.a_tie as f32;
+                        hws[i].loss += battle.a_loss as f32;
 
-                    hws[j].win += battle.b_win as f32;
-                    hws[j].tie += battle.b_tie as f32;
-                    hws[j].loss += battle.b_loss as f32;
+                        hws[j].win += battle.b_win as f32;
+                        hws[j].tie += battle.b_tie as f32;
+                        hws[j].loss += battle.b_loss as f32;
+                    } else {
+                        hws[i].win += battle.b_win as f32;
+                        hws[i].tie += battle.b_tie as f32;
+                        hws[i].loss += battle.b_loss as f32;
+
+                        hws[j].win += battle.a_win as f32;
+                        hws[j].tie += battle.a_tie as f32;
+                        hws[j].loss += battle.a_loss as f32;
+                    }
                 }
                 Err(e) => return Err(e),
             };
