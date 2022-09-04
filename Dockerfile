@@ -10,6 +10,7 @@ ADD src /src/src
 ADD templates /src/templates
 ADD Cargo.toml /src/
 ADD Cargo.lock /src/
+#RUN cargo generate-lockfile
 ADD diesel.toml /src/
 ADD Rocket.toml /src/
 RUN cargo build --release
@@ -23,7 +24,10 @@ COPY --from=0 /src/target/release/hillfort /bin/hillfort
 COPY --from=0 /src/templates /srv/templates
 COPY --from=0 /src/pMARS-master/src/pmars /bin/pmars-server
 COPY --from=0 /src/Rocket.toml /srv/Rocket.toml
+#COPY --from=0 /src/Cargo.lock /srv/Cargo.lock
 ENV ROCKET_ADDRESS=0.0.0.0
 ENV DATABASE_URL=db/hillfort.db
 VOLUME /srv/db/
+USER nobody
+EXPOSE 8000
 ENTRYPOINT /bin/hillfort
