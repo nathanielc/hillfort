@@ -82,7 +82,7 @@ fn climb(conn: &SqliteConnection, c: Climb) -> Result<(), Error> {
     let mut w_paths: Vec<PathBuf> = Vec::with_capacity(warriors.len());
     let mut hws: Vec<NewHillWarrior> = Vec::with_capacity(warriors.len());
     for w in &warriors {
-        let p = tmp_dir.path().join(&w.name);
+        let p = tmp_dir.path().join(&w.id.to_string());
         let mut f = File::create(&p)?;
         f.write_all(w.redcode.as_bytes())?;
         w_paths.push(p);
